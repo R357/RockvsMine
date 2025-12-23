@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import toast from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
-import InputSection from './components/InputSection';
-import ResultHistory from './components/ResultHistory';
-import PredictionChart from './components/PredictionChart';
-import ContactForm from './components/ContactForm';
-import DarkModeToggle from './components/DarkModeToggle';
-import StatsCard from './components/StatsCard';
-import ToastNotification from './components/ToastNotification';
+import InputSection from "./components/InputSection";
+import ResultHistory from "./components/ResultHistory";
+import PredictionChart from "./components/PredictionChart";
+import ContactForm from "./components/ContactForm";
+import DarkModeToggle from "./components/DarkModeToggle";
+import StatsCard from "./components/StatsCard";
+import ToastNotification from "./components/ToastNotification";
 
-import useDarkMode from './hooks/useDarkMode';
-import { fireConfetti } from './utils/confetti';
-import { FaTrophy } from 'react-icons/fa';
+import useDarkMode from "./hooks/useDarkMode";
+import { fireConfetti } from "./utils/confetti";
+import { FaTrophy } from "react-icons/fa";
 
 const App = () => {
   const [latestResult, setLatestResult] = useState(null);
@@ -50,12 +50,12 @@ const App = () => {
       return;
     }
 
-    const rockCount = history.filter(h => h.prediction === "Rock").length;
-    const mineCount = history.filter(h => h.prediction === "Mine").length;
+    const rockCount = history.filter((h) => h.prediction === "Rock").length;
+    const mineCount = history.filter((h) => h.prediction === "Mine").length;
     const avgConfidence =
       history.reduce((acc, h) => acc + h.confidence, 0) / history.length;
 
-    const highConfidence = history.filter(h => h.confidence >= 80).length;
+    const highConfidence = history.filter((h) => h.confidence >= 80).length;
     const accuracy = (highConfidence / history.length) * 100;
 
     setStats({
@@ -175,18 +175,34 @@ const App = () => {
 
       // don't react when typing in inputs/textareas/selects or contenteditable
       const target = e.target;
-      const tag = target && target.tagName ? target.tagName.toLowerCase() : null;
+      const tag =
+        target && target.tagName ? target.tagName.toLowerCase() : null;
       const isEditing =
-        tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        target?.isContentEditable;
 
       if (isEditing) return; // ignore shortcuts while typing
 
       // Ctrl/Cmd + D => Toggle Dark Mode
-      if ((e.ctrlKey || e.metaKey) && key === "d") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === "d" &&
+        !e.repeat
+      ) {
         e.preventDefault();
-        // use functional update to avoid stale closure
-        setIsDark(prev => !prev);
-        toast.success(`${!isDark ? "🌙" : "☀️"} ${!isDark ? "Dark" : "Light"} mode activated`);
+
+        setIsDark((prev) => {
+          const nextIsDark = !prev;
+
+          toast.success(
+            `${nextIsDark ? "🌙 Dark" : "☀️ Light"} mode activated`
+          );
+
+          return nextIsDark;
+        });
+
         return;
       }
 
@@ -210,7 +226,10 @@ const App = () => {
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 page-transition">
       <ToastNotification />
-      <DarkModeToggle isDark={isDark} toggleDark={() => setIsDark(prev => !prev)} />
+      <DarkModeToggle
+        isDark={isDark}
+        toggleDark={() => setIsDark((prev) => !prev)}
+      />
 
       {/* WELCOME ANIMATION — ALWAYS SHOW (5s) */}
       <AnimatePresence>
@@ -240,7 +259,9 @@ const App = () => {
                 🪨💣
               </motion.div>
 
-              <h2 className="text-3xl font-bold mb-2 text-black dark:text-white">Welcome!</h2>
+              <h2 className="text-3xl font-bold mb-2 text-black dark:text-white">
+                Welcome!
+              </h2>
 
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 Advanced ML-powered Sonar Classification
@@ -270,8 +291,10 @@ const App = () => {
             className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white mb-4 drop-shadow-lg"
             animate={{ scale: [1, 1.02, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
-          > 
-            <span className="dark:text-red-400  text-black">🪨 Rock vs Mine 💣</span>
+          >
+            <span className="dark:text-red-400  text-black">
+              🪨 Rock vs Mine 💣
+            </span>
           </motion.h1>
 
           <motion.p
@@ -300,9 +323,13 @@ const App = () => {
             className="mt-4 text-xs dark:text-white text-black opacity-60"
           >
             💡 Shortcuts:
-            <kbd className="px-2 py-1 bg-white bg-opacity-20 rounded">Ctrl+D</kbd>{" "}
+            <kbd className="px-2 py-1 bg-white bg-opacity-20 rounded">
+              Ctrl+D
+            </kbd>{" "}
             Dark Mode |
-            <kbd className="px-2 py-1 bg-white bg-opacity-20 rounded ml-2">Ctrl+K</kbd>{" "}
+            <kbd className="px-2 py-1 bg-white bg-opacity-20 rounded ml-2">
+              Ctrl+K
+            </kbd>{" "}
             Clear History
           </motion.div>
         </motion.div>
@@ -394,11 +421,12 @@ const App = () => {
           className="mt-12 text-center text-white opacity-80"
         >
           <p className="text-sm mb-2">
-            ⚡ Powered by Logistic Regression ML Model + Random Forest Model | Data from Google Cloud
-            Storage
+            ⚡ Powered by Logistic Regression ML Model + Random Forest Model |
+            Data from Google Cloud Storage
           </p>
           <p className=" text-xs">
-            FastAPI Backend + React Frontend | Builded BY RMJ developers | {new Date().getFullYear()}
+            FastAPI Backend + React Frontend | Builded BY RMJ developers |{" "}
+            {new Date().getFullYear()}
           </p>
           <div className="mt-4 flex justify-center gap-4 text-xs">
             <a href="http" className="hover:text-blue-300 transition">
