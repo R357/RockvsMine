@@ -5,9 +5,9 @@ import { Pie, Bar, Line } from 'react-chartjs-2';
 import { FaChartPie, FaChartBar, FaChartLine, FaChartArea, FaExpand, FaSyncAlt, FaInfoCircle } from 'react-icons/fa';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { Filler } from 'chart.js';
 
-
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler);
 
 
 const PredictionChart = ({ history }) => {
