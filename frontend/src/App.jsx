@@ -15,8 +15,6 @@ import useDarkMode from "./hooks/useDarkMode";
 import { fireConfetti } from "./utils/confetti";
 import { FaTrophy } from "react-icons/fa";
 
-import { API_URL, CONTACT_FORM_ACTION } from "./config";
-
 const App = () => {
   const [latestResult, setLatestResult] = useState(null);
   const [history, setHistory] = useState([]);
@@ -39,6 +37,8 @@ const App = () => {
   // -------------------------------------
   // const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/predict";
   // const CONTACT_FORM_ACTION = import.meta.env.VITE_CONTACT_FORM_ACTION || "";
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/predict";
+  const CONTACT_FORM_ACTION = process.env.REACT_APP_CONTACT_FORM_ACTION || "";
 
   // -------------------------------------
   // CALCULATE STATS
