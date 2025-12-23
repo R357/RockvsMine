@@ -113,7 +113,7 @@ const App = () => {
     const loadingToast = toast.loading("🔍 Analyzing sonar data...");
 
     try {
-      const response = await axios.post(`${API_URL}`, {
+      const response = await axios.post(`${API_URL}/predict`, {
         values: features,
       });
 
