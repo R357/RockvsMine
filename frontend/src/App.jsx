@@ -36,7 +36,7 @@ const App = () => {
   // const CONTACT_FORM_ACTION = process.env.REACT_APP_CONTACT_FORM_ACTION || "";
   // -------------------------------------
   const API_URL =
-    process.env.REACT_APP_API_URL || "http://localhost:8000/predict";
+  process.env.REACT_APP_API_URL || "http://localhost:8000";
   const CONTACT_FORM_ACTION = process.env.REACT_APP_CONTACT_FORM_ACTION || "";
 
   // -------------------------------------
