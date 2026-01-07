@@ -351,12 +351,13 @@ def perform_bidirectional_cv(model, X_train_enh, Y_train, X_test_enh, Y_test):
 
 
 def train_multiple_models(X_train, Y_train, X_test, Y_test):
-    global best_rf_model, roc_curve_base64  # **UPDATED: Added roc_curve_base64**
+    global best_rf_model, roc_curve_base64
     try:
         print('\n' + '='*80)
-        print(' TRAINING RANDOM FOREST FOR FEATURE STACKING (LEAKAGE-FREE)')
+        print(' TRAINING RANDOM FOREST FOR FEATURE STACKING (LEAKAGE-FREE - OPTIMIZED)')
         print('='*80)
 
+        # Random Forest base
         rf_base = RandomForestClassifier(
             n_estimators=100,
             max_depth=6,
@@ -366,27 +367,30 @@ def train_multiple_models(X_train, Y_train, X_test, Y_test):
             random_state=42
         )
 
+        # OOF predictions with noise
         rf_oof_train = get_oof_predictions(rf_base, X_train, Y_train, n_splits=5, random_state=42)
         rf_oof_train_noisy = add_strong_noise(rf_oof_train.reshape(-1,1), noise_level=TRAINING_NOISE_LEVEL).reshape(-1,)
-        
+
         rf_base.fit(X_train, Y_train)
         best_rf_model = rf_base
 
         rf_test_pred = get_positive_class_proba(best_rf_model, X_test, positive_class='M')
         rf_test_pred_noisy = add_strong_noise(rf_test_pred.reshape(-1,1), noise_level=TRAINING_NOISE_LEVEL).reshape(-1,)
 
-        print(' Random Forest OOF features generated and RF fitted on training set')
-        print(' Added strong training-time noise to OOF features (Option C)')
+        print(' ✓ RF OOF features generated (leakage-free)')
+        print(' ✓ Strong training noise added')
 
+        # Enhanced features
         X_train_enh = np.hstack((X_train, rf_oof_train_noisy.reshape(-1,1)))
         X_test_enh = np.hstack((X_test, rf_test_pred_noisy.reshape(-1,1)))
 
+        # 5 LogisticRegression models (fast CV)
         models = {
-            'LogisticRegression_liblinear_C0.01': LogisticRegression(solver='liblinear', C=0.01, penalty='l2', max_iter=5000, random_state=42),
-            'LogisticRegression_lbfgs_C0.1': LogisticRegression(solver='lbfgs', C=0.1, penalty='l2', max_iter=5000, random_state=42),
-            'LogisticRegression_saga_l1': LogisticRegression(solver='saga', C=0.05, penalty='l1', max_iter=5000, random_state=42, tol=0.01),
-            'LogisticRegression_saga_l2_C0.3': LogisticRegression(solver='saga', C=0.3, penalty='l2', max_iter=5000, random_state=42, tol=0.01),
-            'LogisticRegression_balanced': LogisticRegression(solver='lbfgs', C=0.2, penalty='l2', max_iter=5000, random_state=42, class_weight='balanced')
+            'LogisticRegression_liblinear_C0.01': LogisticRegression(solver='liblinear', C=0.01, penalty='l2', max_iter=1000, random_state=42),
+            'LogisticRegression_lbfgs_C0.1': LogisticRegression(solver='lbfgs', C=0.1, penalty='l2', max_iter=1000, random_state=42),
+            'LogisticRegression_saga_l1': LogisticRegression(solver='saga', C=0.05, penalty='l1', max_iter=1000, random_state=42, tol=0.01),
+            'LogisticRegression_saga_l2_C0.3': LogisticRegression(solver='saga', C=0.3, penalty='l2', max_iter=1000, random_state=42, tol=0.01),
+            'LogisticRegression_balanced': LogisticRegression(solver='lbfgs', C=0.2, penalty='l2', max_iter=1000, random_state=42, class_weight='balanced')
         }
 
         results = {}
@@ -397,109 +401,87 @@ def train_multiple_models(X_train, Y_train, X_test, Y_test):
         best_y_pred_proba = None
 
         print('\n' + '='*80)
-        print(' TRAINING LOGISTIC REGRESSION MODELS (STACKED WITH RF - LEAKAGE FREE)')
+        print(' TRAINING 5 LOGISTIC REGRESSION MODELS (STACKED w/ RF - FAST)')
         print('='*80)
 
-        skf_local = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
         for name, model in models.items():
-            try:
-                print(f"\n🔹 Training: {name}")
-                model.fit(X_train_enh, Y_train)
-                print(f"    Model fitted | Classes: {model.classes_}")
+            print(f"\n🔹 Training: {name}")
 
-                cv_scores = cross_val_score(model, X_train_enh, Y_train, cv=skf_local, scoring='accuracy')
-                cv_mean = float(cv_scores.mean())
-                cv_std = float(cv_scores.std())
+            # Fit model
+            model.fit(X_train_enh, Y_train)
+            print(f"    ✓ Model fitted | Classes: {model.classes_}")
 
-                train_acc = accuracy_score(Y_train, model.predict(X_train_enh))
-                test_acc = accuracy_score(Y_test, model.predict(X_test_enh))
+            # Fast CV (ROC AUC)
+            cv_scores = cross_val_score(model, X_train_enh, Y_train, cv=skf, scoring='roc_auc', n_jobs=1)
+            cv_mean = float(cv_scores.mean())
+            cv_std = float(cv_scores.std())
 
-                train_probs = get_positive_class_proba(model, X_train_enh, positive_class='M')
-                test_probs = get_positive_class_proba(model, X_test_enh, positive_class='M')
-                y_train_binary = (Y_train == 'M').astype(int)
-                y_test_binary = (Y_test == 'M').astype(int)
-                train_auc = float(roc_auc_score(y_train_binary, train_probs))
-                test_auc = float(roc_auc_score(y_test_binary, test_probs))
-                fpr_curve, tpr_curve, thresholds = roc_curve(y_test_binary, test_probs)
-                roc_auc_computed = float(auc(fpr_curve, tpr_curve))
+            # Test metrics
+            train_acc = accuracy_score(Y_train, model.predict(X_train_enh))
+            test_acc = accuracy_score(Y_test, model.predict(X_test_enh))
 
-                metrics_05 = compute_metrics(y_test_binary, test_probs, threshold=0.5)
-                opt_thresh, opt_fpr_at_thresh, opt_tpr_at_thresh = find_optimal_threshold(y_test_binary, test_probs)
-                metrics_opt = compute_metrics(y_test_binary, test_probs, threshold=opt_thresh)
-                bidirectional_cv_results = perform_bidirectional_cv(model, X_train_enh, Y_train, X_test_enh, Y_test)
+            train_probs = get_positive_class_proba(model, X_train_enh, positive_class='M')
+            test_probs = get_positive_class_proba(model, X_test_enh, positive_class='M')
+            y_test_binary = (Y_test == 'M').astype(int)
 
-                results[name] = {
-                    'cv_mean': cv_mean, 'cv_std': cv_std, 'train_acc': float(train_acc), 'test_acc': float(test_acc),
-                    'train_auc': float(train_auc), 'test_auc': float(test_auc), 'roc_auc': float(roc_auc_computed), 'model': model,
-                    'metrics_at_0.5': metrics_05,
-                    'optimal_threshold': float(opt_thresh),
-                    'metrics_optimal': metrics_opt,
-                    'bidirectional_cv': bidirectional_cv_results
-                }
+            train_auc = float(roc_auc_score((Y_train == 'M').astype(int), train_probs))
+            test_auc = float(roc_auc_score(y_test_binary, test_probs))
 
-                print(f"   ✓ Metrics @ threshold=0.5 -> TPR: {metrics_05['TPR']:.4f}, FPR: {metrics_05['FPR']:.4f}, Precision: {metrics_05['Precision']:.4f}, F1: {metrics_05['F1']:.4f}")
-                print(f"   ✓ Metrics @ optimal_thresh={opt_thresh:.4f} -> TPR: {metrics_opt['TPR']:.4f}, FPR: {metrics_opt['FPR']:.4f}, Precision: {metrics_opt['Precision']:.4f}, F1: {metrics_opt['F1']:.4f}")
-                print(f"   ✓ Bidirectional CV -> Normal: {bidirectional_cv_results['normal_cv_auc']:.4f}, Swapped: {bidirectional_cv_results['swapped_cv_auc']:.4f}, Avg: {bidirectional_cv_results['bidirectional_avg']:.4f}")
-                print(f"   ✓ Train Acc: {train_acc*100:.2f}%, Test Acc: {test_acc*100:.2f}%")
-                print(f"   ✓ CV Score: {cv_mean:.4f} (+/- {cv_std:.4f})")
-                print(f"   ✓ Train ROC AUC: {train_auc:.4f}, Test ROC AUC: {test_auc:.4f}")
+            # Metrics at optimal threshold
+            opt_thresh, _, _ = find_optimal_threshold(y_test_binary, test_probs)
+            metrics_opt = compute_metrics(y_test_binary, test_probs, threshold=opt_thresh)
 
-                if abs(train_auc - test_auc) < 0.15:
-                    print("   Good generalization (realistic gap)")
+            results[name] = {
+                'cv_mean': cv_mean, 'cv_std': cv_std,
+                'train_acc': float(train_acc), 'test_acc': float(test_acc),
+                'train_auc': float(train_auc), 'test_auc': float(test_auc),
+                'optimal_threshold': float(opt_thresh),
+                'metrics_optimal': metrics_opt,
+                'model': model
+            }
 
-                if test_auc > best_auc_score:
-                    best_auc_score = test_auc
-                    best_model_name = name
-                    best_model_obj = model
-                    best_y_true_binary = y_test_binary
-                    best_y_pred_proba = test_probs
-                    print(f"   New best model! Test AUC: {test_auc:.4f}")
+            print(f"   ✓ CV ROC-AUC: {cv_mean:.4f} (+/- {cv_std:.4f})")
+            print(f"   ✓ Train Acc: {train_acc*100:.2f}%, Test Acc: {test_acc*100:.2f}%")
+            print(f"   ✓ Train AUC: {train_auc:.4f}, Test AUC: {test_auc:.4f}")
+            print(f"   ✓ Optimal F1: {metrics_opt['F1']:.4f} @ thresh={opt_thresh:.4f}")
 
-            except Exception as e:
-                print(f"   Error training {name}: {str(e)}")
-                print(traceback.format_exc())
-                continue
+            if test_auc > best_auc_score:
+                best_auc_score = test_auc
+                best_model_name = name
+                best_model_obj = model
+                best_y_true_binary = y_test_binary
+                best_y_pred_proba = test_probs
+                print(f"   ⭐ NEW BEST: {name} (Test AUC: {test_auc:.4f})")
 
         if best_model_obj is None:
-            raise Exception('No model selected as best')
+            raise Exception('No model trained successfully')
+
+        # Generate ROC curve
+        print('\n🔹 Generating ROC curve for frontend...')
+        roc_curve_base64 = generate_roc_curve_image(best_y_true_binary, best_y_pred_proba, best_model_name, best_auc_score)
 
         print('\n' + '='*80)
-        print(f" BEST MODEL SELECTED: {best_model_name}")
-        print(f" Test Accuracy: {results[best_model_name]['test_acc']*100:.2f}%")
-        print(f" Test ROC AUC: {best_auc_score:.4f}")
-        print(f" Bidirectional CV Avg: {results[best_model_name]['bidirectional_cv']['bidirectional_avg']:.4f}")
+        print(f" 🏆 BEST MODEL: {best_model_name}")
+        print(f"    Test Acc: {results[best_model_name]['test_acc']*100:.2f}%")
+        print(f"    Test AUC:  {best_auc_score:.4f}")
+        print(f"    CV AUC:    {results[best_model_name]['cv_mean']:.4f} (+/- {results[best_model_name]['cv_std']:.4f})")
         print('='*80)
 
-        print("\n Generating ROC curve image for frontend...")
-        roc_curve_base64 = generate_roc_curve_image(best_y_true_binary, best_y_pred_proba, best_model_name, best_auc_score)
-        if roc_curve_base64:
-            print(" ROC curve image generated and stored")
-        else:
-            print(" Failed to generate ROC curve image")
+        # Save models with compression
+        os.makedirs(MODEL_ARTIFACT_PATH, exist_ok=True)
+        joblib.dump(best_model_obj, os.path.join(MODEL_ARTIFACT_PATH, 'best_model.joblib'), compress=3)
+        joblib.dump(best_rf_model, os.path.join(MODEL_ARTIFACT_PATH, 'rf_model.joblib'), compress=3)
+        joblib.dump(scaler, os.path.join(MODEL_ARTIFACT_PATH, 'scaler.joblib'), compress=3)
 
-        try:
-            print_smooth_rising_roc_curve(best_y_true_binary, best_y_pred_proba, best_model_name, best_auc_score, width=70, height=30, n_points=1000)
-        except Exception:
-            pass
-
-        model_artifact_file = os.path.join(MODEL_ARTIFACT_PATH, 'best_model.joblib')
-        rf_artifact_file = os.path.join(MODEL_ARTIFACT_PATH, 'rf_model.joblib')
-        scaler_artifact_file = os.path.join(MODEL_ARTIFACT_PATH, 'scaler.joblib')
-        joblib.dump(best_model_obj, model_artifact_file)
-        joblib.dump(best_rf_model, rf_artifact_file)
-        joblib.dump(scaler, scaler_artifact_file)
-        print(f" Saved best model to {model_artifact_file}")
-        print(f" Saved rf model to {rf_artifact_file}")
-        print(f" Saved scaler to {scaler_artifact_file}")
-
+        print(" ✅ Models saved with compression (faster deploy)")
         return best_model_obj, best_model_name, results
 
     except Exception as e:
-        print(' Critical error during training:', str(e))
+        print(f'🚨 Training failed: {str(e)}')
         print(traceback.format_exc())
         raise
-
 
 def calculate_training_statistics(X_train):
     stats = {'overall': {'min': float(X_train.min()), 'max': float(X_train.max()), 'mean': float(X_train.mean()), 'std': float(X_train.std()), 'median': float(np.median(X_train))}, 'per_feature': {}}
@@ -708,9 +690,10 @@ def clear_history():
     prediction_history = []
     return {"message": " History cleared"}
 
-if __name__ == '__main__':
-    print('\n' + '='*80)
-    print(' STARTING FASTAPI SERVER (Option C - Advanced + Bidirectional CV + ROC)')
-    print('='*80)
-    uvicorn.run(app, host='0.0.0.0', port=8000, log_level='info')
 
+if __name__ == '__main__':
+    port = int(os.getenv("PORT", 8000))
+    print('\n' + '='*80)
+    print(f' STARTING FASTAPI SERVER on port {port} (Option C - Advanced + Bidirectional CV + ROC)')
+    print('='*80)
+    uvicorn.run(app, host='0.0.0.0', port=port, log_level='info')
