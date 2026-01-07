@@ -1,27 +1,70 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement } from 'chart.js';
-import { Pie, Bar, Line } from 'react-chartjs-2';
-import { FaChartPie, FaChartBar, FaChartLine, FaChartArea, FaExpand, FaSyncAlt, FaInfoCircle } from 'react-icons/fa';
-import axios from 'axios';
-import toast from 'react-hot-toast';
-import { Filler } from 'chart.js';
+import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  LineElement,
+  PointElement,
+} from "chart.js";
+import { Pie, Bar, Line } from "react-chartjs-2";
+import {
+  FaChartPie,
+  FaChartBar,
+  FaChartLine,
+  FaChartArea,
+  FaExpand,
+  FaSyncAlt,
+  FaInfoCircle,
+} from "react-icons/fa";
+import axios from "axios";
+import toast from "react-hot-toast";
+import { Filler } from "chart.js";
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement, Filler);
+const formatISTDate = (timestamp) => {
+  const date = new Date(timestamp);
+  const options = {
+    timeZone: "Asia/Kolkata", // IST timezone
+    year: "numeric",
+    month: "2-digit", // Leading zero for month
+    day: "2-digit", // Leading zero for day
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true, // AM/PM format
+  };
+  return new Intl.DateTimeFormat("en-IN", options).format(date);
+};
 
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  LineElement,
+  PointElement,
+  Filler
+);
 
 const PredictionChart = ({ history }) => {
-  const [chartType, setChartType] = useState('pie');
+  const [chartType, setChartType] = useState("pie");
   const [rocImage, setRocImage] = useState(null);
   const [loadingROC, setLoadingROC] = useState(false);
   const [rocModelInfo, setRocModelInfo] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';  // Use same env var as in App.jsx
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"; // Use same env var as in App.jsx
 
-  const rockCount = history.filter(h => h.prediction === 'Rock').length;
-  const mineCount = history.filter(h => h.prediction === 'Mine').length;
-
+  const rockCount = history.filter((h) => h.prediction === "Rock").length;
+  const mineCount = history.filter((h) => h.prediction === "Mine").length;
 
   // Fix useEffect with useCallback
   const fetchROCCurve = useCallback(async () => {
@@ -31,78 +74,62 @@ const PredictionChart = ({ history }) => {
       setRocImage(response.data.roc_curve_image);
       setRocModelInfo({
         modelName: response.data.model_name,
-        timestamp: new Date(response.data.timestamp).toLocaleString()
+        timestamp: formatISTDate(response.data.timestamp),
       });
-      toast.success('ROC Curve loaded!', { icon: '📊', duration: 2000 });
+      toast.success("ROC Curve loaded!", { icon: "📊", duration: 2000 });
     } catch (error) {
-      console.error('Error fetching ROC curve:', error);
-      toast.error('Failed to load ROC curve', { duration: 2000 });
+      console.error("Error fetching ROC curve:", error);
+      toast.error("Failed to load ROC curve", { duration: 2000 });
     } finally {
       setLoadingROC(false);
     }
   }, [API_URL]);
 
-
   useEffect(() => {
-    if (chartType === 'roc' && !rocImage) {
+    if (chartType === "roc" && !rocImage) {
       fetchROCCurve();
     }
   }, [chartType, rocImage, fetchROCCurve]);
 
-
   // Pie Chart Data
   const pieData = {
-    labels: ['🪨 Rock', '💣 Mine'],
+    labels: ["🪨 Rock", "💣 Mine"],
     datasets: [
       {
-        label: 'Predictions',
+        label: "Predictions",
         data: [rockCount, mineCount],
-        backgroundColor: [
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(239, 68, 68, 0.8)'
-        ],
-        borderColor: [
-          '#2563EB',
-          '#DC2626'
-        ],
+        backgroundColor: ["rgba(59, 130, 246, 0.8)", "rgba(239, 68, 68, 0.8)"],
+        borderColor: ["#2563EB", "#DC2626"],
         borderWidth: 3,
         hoverOffset: 10,
       },
     ],
   };
 
-
   // Bar Chart Data
   const barData = {
-    labels: ['🪨 Rock', '💣 Mine'],
+    labels: ["🪨 Rock", "💣 Mine"],
     datasets: [
       {
-        label: 'Number of Predictions',
+        label: "Number of Predictions",
         data: [rockCount, mineCount],
-        backgroundColor: [
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(239, 68, 68, 0.8)'
-        ],
-        borderColor: [
-          '#2563EB',
-          '#DC2626'
-        ],
+        backgroundColor: ["rgba(59, 130, 246, 0.8)", "rgba(239, 68, 68, 0.8)"],
+        borderColor: ["#2563EB", "#DC2626"],
         borderWidth: 2,
         borderRadius: 8,
       },
     ],
   };
 
-
   // Trend Line Chart Data (Confidence over time)
   const trendData = {
     labels: history.slice(-10).map((_, i) => `#${i + 1}`),
     datasets: [
       {
-        label: 'Confidence %',
-        data: history.slice(-10).map(h => h.confidence),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        label: "Confidence %",
+        data: history.slice(-10).map((h) => h.confidence),
+        borderColor: "rgb(59, 130, 246)",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
         tension: 0.4,
         fill: true,
         pointRadius: 5,
@@ -111,24 +138,23 @@ const PredictionChart = ({ history }) => {
     ],
   };
 
-
   const options = {
     responsive: true,
     maintainAspectRatio: true,
     plugins: {
       legend: {
-        position: 'bottom',
+        position: "bottom",
         labels: {
           font: {
             size: 12,
-            weight: 'bold'
+            weight: "bold",
           },
           padding: 15,
           usePointStyle: true,
-        }
+        },
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
         padding: 12,
         titleFont: {
           size: 14,
@@ -137,14 +163,13 @@ const PredictionChart = ({ history }) => {
           size: 13,
         },
         cornerRadius: 8,
-      }
+      },
     },
     animation: {
       animateScale: true,
       animateRotate: true,
-    }
+    },
   };
-
 
   return (
     <motion.div
@@ -158,18 +183,17 @@ const PredictionChart = ({ history }) => {
           Statistics & Analysis
         </h3>
 
-
         {/* Chart Type Selector */}
         {history.length > 0 && (
           <div className="flex gap-2">
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setChartType('pie')}
+              onClick={() => setChartType("pie")}
               className={`p-2 rounded-lg transition ${
-                chartType === 'pie' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400'
+                chartType === "pie"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400"
               }`}
               title="Pie Chart"
             >
@@ -178,11 +202,11 @@ const PredictionChart = ({ history }) => {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setChartType('bar')}
+              onClick={() => setChartType("bar")}
               className={`p-2 rounded-lg transition ${
-                chartType === 'bar' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400'
+                chartType === "bar"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400"
               }`}
               title="Bar Chart"
             >
@@ -191,11 +215,11 @@ const PredictionChart = ({ history }) => {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setChartType('trend')}
+              onClick={() => setChartType("trend")}
               className={`p-2 rounded-lg transition ${
-                chartType === 'trend' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400'
+                chartType === "trend"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400"
               }`}
               title="Trend Line"
             >
@@ -204,11 +228,11 @@ const PredictionChart = ({ history }) => {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setChartType('roc')}
+              onClick={() => setChartType("roc")}
               className={`p-2 rounded-lg transition ${
-                chartType === 'roc' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400'
+                chartType === "roc"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200 dark:bg-dark-bg text-gray-600 dark:text-gray-400"
               }`}
               title="ROC Curve"
             >
@@ -217,7 +241,6 @@ const PredictionChart = ({ history }) => {
           </div>
         )}
       </div>
-
 
       {history.length === 0 ? (
         <motion.div
@@ -233,7 +256,9 @@ const PredictionChart = ({ history }) => {
             📊
           </motion.p>
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            No data to display.<br/>Make some predictions first!
+            No data to display.
+            <br />
+            Make some predictions first!
           </p>
         </motion.div>
       ) : (
@@ -244,22 +269,20 @@ const PredictionChart = ({ history }) => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
-            className={chartType === 'roc' ? 'min-h-[400px]' : 'h-64'}
+            className={chartType === "roc" ? "min-h-[400px]" : "h-64"}
           >
-            {chartType === 'pie' && (
+            {chartType === "pie" && (
               <div className="h-full flex items-center justify-center">
                 <div className="w-full max-w-[250px]">
                   <Pie data={pieData} options={options} />
                 </div>
               </div>
             )}
-            {chartType === 'bar' && (
-              <Bar data={barData} options={options} />
-            )}
-            {chartType === 'trend' && (
+            {chartType === "bar" && <Bar data={barData} options={options} />}
+            {chartType === "trend" && (
               <Line data={trendData} options={options} />
             )}
-            {chartType === 'roc' && (
+            {chartType === "roc" && (
               <AnimatePresence>
                 {loadingROC ? (
                   <motion.div
@@ -269,12 +292,18 @@ const PredictionChart = ({ history }) => {
                   >
                     <motion.div
                       animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
                       className="text-6xl mb-4"
                     >
                       🔄
                     </motion.div>
-                    <p className="text-gray-600 dark:text-gray-400 font-medium">Loading ROC Curve...</p>
+                    <p className="text-gray-600 dark:text-gray-400 font-medium">
+                      Loading ROC Curve...
+                    </p>
                   </motion.div>
                 ) : rocImage ? (
                   <motion.div
@@ -329,8 +358,11 @@ const PredictionChart = ({ history }) => {
                       📊
                     </motion.div>
                     <p className="text-gray-600 dark:text-gray-400 mb-4 font-medium text-center">
-                      ROC curve unavailable<br />
-                      <span className="text-sm text-gray-500">Model may not be trained yet</span>
+                      ROC curve unavailable
+                      <br />
+                      <span className="text-sm text-gray-500">
+                        Model may not be trained yet
+                      </span>
                     </p>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -347,36 +379,46 @@ const PredictionChart = ({ history }) => {
             )}
           </motion.div>
 
-
           {/* Summary Stats Cards - Only show for non-ROC charts */}
-          {chartType !== 'roc' && (
+          {chartType !== "roc" && (
             <>
               <div className="grid grid-cols-3 gap-3 mb-8">
                 <motion.div
                   whileHover={{ scale: 1.05, y: -5 }}
                   className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-xl p-4 text-center shadow-md"
                 >
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">{rockCount}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 font-medium">🪨 Rocks</p>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">
+                    {rockCount}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 font-medium">
+                    🪨 Rocks
+                  </p>
                 </motion.div>
-                
+
                 <motion.div
                   whileHover={{ scale: 1.05, y: -5 }}
                   className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-xl p-4 text-center shadow-md"
                 >
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">{mineCount}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 font-medium">💣 Mines</p>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">
+                    {mineCount}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 font-medium">
+                    💣 Mines
+                  </p>
                 </motion.div>
-                
+
                 <motion.div
                   whileHover={{ scale: 1.05, y: -5 }}
                   className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-xl p-4 text-center shadow-md"
                 >
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">{history.length}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 font-medium">📊 Total</p>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">
+                    {history.length}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 font-medium">
+                    📊 Total
+                  </p>
                 </motion.div>
               </div>
-
 
               {/* Average Confidence */}
               <motion.div
@@ -385,15 +427,20 @@ const PredictionChart = ({ history }) => {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-1 font-medium">Average Confidence</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-1 font-medium">
+                      Average Confidence
+                    </p>
                     <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">
-                      {(history.reduce((acc, h) => acc + h.confidence, 0) / history.length).toFixed(1)}%
+                      {(
+                        history.reduce((acc, h) => acc + h.confidence, 0) /
+                        history.length
+                      ).toFixed(1)}
+                      %
                     </p>
                   </div>
                   <div className="text-5xl opacity-50">✨</div>
                 </div>
               </motion.div>
-
 
               {/* Percentage Breakdown */}
               <div className="space-y-2">
@@ -403,7 +450,10 @@ const PredictionChart = ({ history }) => {
                     Rock Percentage
                   </span>
                   <span className="font-bold text-gray-800 dark:text-white">
-                    {history.length > 0 ? ((rockCount / history.length) * 100).toFixed(1) : 0}%
+                    {history.length > 0
+                      ? ((rockCount / history.length) * 100).toFixed(1)
+                      : 0}
+                    %
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -412,16 +462,20 @@ const PredictionChart = ({ history }) => {
                     Mine Percentage
                   </span>
                   <span className="font-bold text-gray-800 dark:text-white">
-                    {history.length > 0 ? ((mineCount / history.length) * 100).toFixed(1) : 0}%
+                    {history.length > 0
+                      ? ((mineCount / history.length) * 100).toFixed(1)
+                      : 0}
+                    %
                   </span>
                 </div>
               </div>
 
-
               {/* High Confidence Badge */}
-              {history.length > 0 && (
+              {history.length > 0 &&
                 (() => {
-                  const highConfidence = history.filter(h => h.confidence >= 90).length;
+                  const highConfidence = history.filter(
+                    (h) => h.confidence >= 90
+                  ).length;
                   const percentage = (highConfidence / history.length) * 100;
                   return (
                     <motion.div
@@ -432,16 +486,18 @@ const PredictionChart = ({ history }) => {
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">🎯</span>
                         <div className="flex-1">
-                          <p className="text-xs text-gray-600 dark:text-gray-300">High Confidence Rate</p>
-                          <p className="text-lg font-bold text-blue-600 dark:text-blue-300" >
-                            {percentage.toFixed(0)}% ({highConfidence}/{history.length})
+                          <p className="text-xs text-gray-600 dark:text-gray-300">
+                            High Confidence Rate
+                          </p>
+                          <p className="text-lg font-bold text-blue-600 dark:text-blue-300">
+                            {percentage.toFixed(0)}% ({highConfidence}/
+                            {history.length})
                           </p>
                         </div>
                       </div>
                     </motion.div>
                   );
-                })()
-              )}
+                })()}
             </>
           )}
         </div>
@@ -486,6 +542,5 @@ const PredictionChart = ({ history }) => {
     </motion.div>
   );
 };
-
 
 export default PredictionChart;

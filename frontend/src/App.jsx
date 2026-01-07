@@ -35,8 +35,7 @@ const App = () => {
   // const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
   // const CONTACT_FORM_ACTION = process.env.REACT_APP_CONTACT_FORM_ACTION || "";
   // -------------------------------------
-  const API_URL =
-  process.env.REACT_APP_API_URL || "http://localhost:8000";
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
   const CONTACT_FORM_ACTION = process.env.REACT_APP_CONTACT_FORM_ACTION || "";
 
   // -------------------------------------
@@ -428,10 +427,7 @@ const App = () => {
             ⚡ Powered by Logistic Regression ML Model + Random Forest Model |
             Data from Google Cloud Storage
           </p>
-          <p className=" text-xs">
-            FastAPI Backend + React Frontend | Builded BY RMJ developers |{" "}
-            {new Date().getFullYear()}
-          </p>
+          <p className=" text-xs">FastAPI Backend + React Frontend</p>
           <div className="mt-4 flex justify-center gap-4 text-xs">
             <a href="http" className="hover:text-blue-300 transition">
               About
