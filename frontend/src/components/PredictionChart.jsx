@@ -74,7 +74,7 @@ const PredictionChart = ({ history }) => {
       setRocImage(response.data.roc_curve_image);
       setRocModelInfo({
         modelName: response.data.model_name,
-        timestamp: formatISTDate(response.data.timestamp),
+        timestamp: formatISTDate(response.data.timestamp), 
       });
       toast.success("ROC Curve loaded!", { icon: "📊", duration: 2000 });
     } catch (error) {
